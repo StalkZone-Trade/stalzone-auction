@@ -42,7 +42,6 @@
             transition: all 0.3s;
         }
         .refresh-btn:active { transform: scale(0.97); opacity: 0.8; }
-        .refresh-btn.loading { opacity: 0.6; pointer-events: none; }
         .item-card {
             background: #111d2b;
             border-radius: 12px;
@@ -86,6 +85,28 @@
             font-weight: bold;
         }
         .region-btn:active { transform: scale(0.95); }
+        .auth-box {
+            background: #1a2a1a;
+            border: 1px solid #44aa44;
+            border-radius: 12px;
+            padding: 15px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        .auth-box a {
+            color: #ffcc00;
+            font-weight: bold;
+            text-decoration: none;
+        }
+        .auth-box .code-display {
+            background: #0a0e17;
+            padding: 10px;
+            border-radius: 8px;
+            margin: 10px 0;
+            font-size: 12px;
+            color: #88dd88;
+            word-break: break-all;
+        }
     </style>
 </head>
 <body>
@@ -93,6 +114,18 @@
 <div class="header">
     <h1>🔫 STALZONE</h1>
     <p>Аукцион • Цены в реальном времени</p>
+</div>
+
+<!-- Окно для авторизации -->
+<div class="auth-box" id="authBox">
+    <p>🔑 Для доступа к реальному аукциону нужно авторизоваться</p>
+    <a href="https://exbo.net/oauth/authorize?client_id=3456&redirect_uri=https://stalzone-trade.github.io/stalzone-auction/&response_type=code&scope=openid" target="_blank">
+        🔗 Нажми сюда для входа через EXBO
+    </a>
+    <div id="codeDisplay" style="display:none;" class="code-display">
+        ✅ Код авторизации: <span id="codeValue"></span>
+        <br><small>Скопируй этот код и покажи мне</small>
+    </div>
 </div>
 
 <div class="region-selector">
@@ -104,23 +137,35 @@
 
 <div class="status" id="status">📡 Готов к работе</div>
 <button class="refresh-btn" id="refreshBtn">🔄 Обновить цены</button>
-<div id="itemsContainer"></div>
+<div id="itemsContainer"><div class="empty">⏳ Нажмите "Обновить цены"</div></div>
 <div class="footer">StalZone Trade • v2.0</div>
 
 <script>
+    // ============================================================
+    //  ТВОИ ДАННЫЕ
+    // ============================================================
     const CLIENT_ID = "3456";
     const CLIENT_SECRET = "P0hNgIGKQMhdRujgKoFbZwUaOQZiXQrVEGOar0ZC";
-    const DEMO_API = "https://dapi.stalzone.com";
-    const PROD_API = "https://eapi.stalzone.com";
-    const USE_DEMO = false;
-    const BASE_URL = USE_DEMO ? DEMO_API : PROD_API;
+    
+    // ============================================================
+    //  КОД ДЛЯ ПЕРЕХВАТА CODE
+    // ============================================================
+    const urlParams = new URLSearchParams(window.location.search);
+    const code = urlParams.get('code');
 
-    const statusEl = document.getElementById('status');
-    const container = document.getElementById('itemsContainer');
-    const refreshBtn = document.getElementById('refreshBtn');
-    let currentRegion = 'RU';
+    const codeDisplay = document.getElementById('codeDisplay');
+    const codeValue = document.getElementById('codeValue');
 
-    // РЕАЛЬНЫЕ ПРЕДМЕТЫ
+    if (code) {
+        // Если есть code — показываем его
+        codeDisplay.style.display = 'block';
+        codeValue.textContent = code;
+        document.getElementById('authBox').style.borderColor = '#ffcc00';
+    }
+
+    // ============================================================
+    //  БАЗА ДАННЫХ ДЛЯ ПРИМЕРА
+    // ============================================================
     const itemsDB = {
         RU: [
             { name: "FN FAL (Охотничий)", price: 28500, qty: 1 },
@@ -150,6 +195,11 @@
             { name: "Artifact (Ruby)", price: 15800, qty: 4 }
         ]
     };
+
+    const statusEl = document.getElementById('status');
+    const container = document.getElementById('itemsContainer');
+    const refreshBtn = document.getElementById('refreshBtn');
+    let currentRegion = 'RU';
 
     function showItems(region) {
         const items = itemsDB[region] || itemsDB.RU;
