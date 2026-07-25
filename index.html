@@ -158,14 +158,15 @@
     const refreshBtn = document.getElementById('refreshBtn');
     let currentRegion = 'RU';
 
+  
     document.querySelectorAll('.region-btn').forEach(btn => {
-        btn.addEventListener('click', function() {
-            document.querySelectorAll('.region-btn').forEach(b => b.classList.remove('active'));
-            this.classList.add('active');
-            currentRegion = this.dataset.region;
-            loadAuction();
-        });
+    btn.addEventListener('click', function() {
+        document.querySelectorAll('.region-btn').forEach(b => b.classList.remove('active'));
+        this.classList.add('active');
+        currentRegion = this.dataset.region;
+        loadAuction();
     });
+});
 
     // РЕАЛЬНЫЕ ПРЕДМЕТЫ ИЗ STALZONE (настоящие названия)
     const realItems = [
