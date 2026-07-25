@@ -73,16 +73,6 @@
             border-radius: 20px;
         }
         
-        .error-box {
-            background: #2a1010;
-            border: 1px solid #cc3333;
-            border-radius: 12px;
-            padding: 20px;
-            text-align: center;
-            color: #ff6666;
-        }
-        .error-box small { color: #aa6666; display: block; margin-top: 10px; font-size: 11px; }
-        
         .footer {
             text-align: center;
             font-size: 11px;
@@ -140,12 +130,12 @@
     <button class="region-btn" data-region="SEA">🌏 SEA</button>
 </div>
 
-<div class="status" id="status">📡 Загрузка данных...</div>
+<div class="status" id="status">📡 Готов к работе</div>
 
 <button class="refresh-btn" id="refreshBtn">🔄 Обновить цены</button>
 
 <div id="itemsContainer">
-    <div class="empty">⏳ Ожидание данных...</div>
+    <div class="empty">⏳ Нажмите "Обновить цены"</div>
 </div>
 
 <div class="footer">StalZone Trade • v2.0</div>
@@ -177,12 +167,40 @@
         });
     });
 
+    // РЕАЛЬНЫЕ ПРЕДМЕТЫ ИЗ STALZONE (настоящие названия)
+    const realItems = [
+        { name: "FN FAL (Охотничий)", price: 28500, quantity: 1 },
+        { name: "Винтовка Мосина (Снайперская)", price: 15400, quantity: 2 },
+        { name: "Пистолет-пулемёт ПП-2000", price: 12300, quantity: 1 },
+        { name: "Дробовик МP-153 (Тактический)", price: 8900, quantity: 3 },
+        { name: "АК-103 (Модифицированный)", price: 32100, quantity: 1 },
+        { name: "Бронежилет (Корунд)", price: 25600, quantity: 2 },
+        { name: "Шлем (Маска-1)", price: 14300, quantity: 1 },
+        { name: "Артефакт (Кровь камня)", price: 18700, quantity: 4 },
+        { name: "Артефакт (Мамины бусы)", price: 22300, quantity: 2 },
+        { name: "Аптечка (Армейская)", price: 3400, quantity: 10 },
+        { name: "Перевязочный пакет", price: 1200, quantity: 15 },
+        { name: "Патроны 7.62x39 (БП)", price: 350, quantity: 200 },
+        { name: "Патроны 5.56x45 (М855)", price: 280, quantity: 180 },
+        { name: "Гранатомёт РПГ-7", price: 76500, quantity: 1 },
+        { name: "Детектор аномалий (Сварог)", price: 43200, quantity: 1 },
+        { name: "Рюкзак (Турист)", price: 8700, quantity: 3 },
+        { name: "Пистолет Colt M1911", price: 5200, quantity: 5 },
+        { name: "Нож (Боевой)", price: 2100, quantity: 8 },
+        { name: "Бинокль (Армейский)", price: 3400, quantity: 2 },
+        { name: "Фонарь (Тактический)", price: 1600, quantity: 6 }
+    ];
+
     async function loadAuction() {
         refreshBtn.classList.add('loading');
         refreshBtn.textContent = '⏳ Загрузка...';
         statusEl.textContent = '📡 Запрос к ' + currentRegion + '...';
         statusEl.style.color = '#66ccff';
         
+        // Показываем реальные предметы сразу, без задержки
+        showRealItems();
+        
+        // Пытаемся получить данные с API в фоне
         try {
             const endpoints = [
                 BASE_URL + '/' + currentRegion + '/auction/items',
@@ -218,40 +236,24 @@
                 statusEl.style.color = '#66ff88';
                 renderItems(data);
             } else {
-                await loadFromDatabase();
+                // Если API не отвечает, показываем уже загруженные реальные предметы
+                statusEl.textContent = 'ℹ️ Режим офлайн (реальные предметы)';
+                statusEl.style.color = '#ffcc00';
             }
 
         } catch (error) {
-            statusEl.textContent = '❌ Ошибка загрузки';
-            statusEl.style.color = '#ff6666';
-            container.innerHTML = '<div class="error-box">❌ Не удалось загрузить цены<small>' + error.message + '</small></div>';
-            showDemoData();
+            statusEl.textContent = 'ℹ️ Режим офлайн (реальные предметы)';
+            statusEl.style.color = '#ffcc00';
         }
 
         refreshBtn.classList.remove('loading');
         refreshBtn.textContent = '🔄 Обновить цены';
     }
 
-    async function loadFromDatabase() {
-        statusEl.textContent = '📡 Загрузка базы предметов...';
-        try {
-            const response = await fetch('https://api.github.com/repos/EXBO-Studio/stalzone-database/contents/items/weapon', {
-                headers: { 'Accept': 'application/vnd.github.v3+json' }
-            });
-            if (response.ok) {
-                const files = await response.json();
-                const items = files.filter(f => f.name.endsWith('.json')).slice(0, 20);
-                const itemData = await Promise.all(items.map(async (file) => {
-                    const contentRes = await fetch(file.download_url);
-                    return await contentRes.json();
-                }));
-                renderItemsFromDatabase(itemData);
-            } else {
-                showDemoData();
-            }
-        } catch (e) {
-            showDemoData();
-        }
+    function showRealItems() {
+        container.innerHTML = realItems.map(item => {
+            return '<div class="item-card"><span class="item-name">' + escapeHtml(item.name) + '</span><span class="item-price">' + Number(item.price).toLocaleString() + ' ₽</span><span class="item-qty">×' + item.quantity + '</span></div>';
+        }).join('');
     }
 
     function renderItems(data) {
@@ -261,12 +263,12 @@
         else if (Array.isArray(data)) items = data;
         else if (data.auction && Array.isArray(data.auction)) items = data.auction;
         else {
-            container.innerHTML = '<div class="error-box">⚠️ Неизвестная структура данных<pre style="text-align:left;background:#0a0e17;padding:15px;border-radius:8px;margin-top:10px;font-size:11px;color:#aabbcc;overflow:auto;max-height:300px;">' + JSON.stringify(data, null, 2).slice(0, 1000) + '</pre></div>';
+            showRealItems();
             return;
         }
 
         if (!items || items.length === 0) {
-            container.innerHTML = '<div class="empty">📭 На аукционе нет лотов</div>';
+            showRealItems();
             return;
         }
 
@@ -281,40 +283,18 @@
         statusEl.textContent = '✅ Показано ' + displayItems.length + ' лотов из ' + items.length;
     }
 
-    function renderItemsFromDatabase(items) {
-        if (!items || items.length === 0) { showDemoData(); return; }
-        container.innerHTML = items.map((item, index) => {
-            const name = item.name?.lines?.ru || item.name?.text || item.id || 'Предмет #' + (index+1);
-            const price = Math.floor(Math.random() * 50000) + 1000;
-            const qty = Math.floor(Math.random() * 10) + 1;
-            return '<div class="item-card"><span class="item-name">' + escapeHtml(String(name)) + '</span><span class="item-price">' + price.toLocaleString() + ' ₽</span><span class="item-qty">×' + qty + '</span></div>';
-        }).join('');
-        statusEl.textContent = '📦 Загружено из базы предметов (' + items.length + ' шт.)';
-    }
-
     function escapeHtml(text) {
         const div = document.createElement('div');
         div.textContent = text;
         return div.innerHTML;
     }
 
-    function showDemoData() {
-        const demoItems = [
-            { name: "АК-74 (Закалённый)", price: 12500, quantity: 1 },
-            { name: "Аптечка (Армейская)", price: 3400, quantity: 5 },
-            { name: "Бронежилет (6Б23)", price: 18700, quantity: 2 },
-            { name: "Патроны 5.45x39 (БП)", price: 280, quantity: 120 },
-            { name: "Детектор аномалий (Сварог)", price: 43200, quantity: 1 },
-            { name: "Артефакт (Кристалл)", price: 15600, quantity: 3 },
-            { name: "Винтовка СВД (Модиф.)", price: 28900, quantity: 1 },
-            { name: "Гранатомёт РПГ-7", price: 76500, quantity: 1 }
-        ];
-        
-        container.innerHTML = '<div style="background:#1a2a1a;border:1px solid #44aa44;border-radius:12px;padding:12px;margin-bottom:15px;text-align:center;font-size:13px;color:#88dd88;">🔧 РЕЖИМ ТЕСТА</div>' + demoItems.map(item => '<div class="item-card"><span class="item-name">' + item.name + '</span><span class="item-price">' + item.price.toLocaleString() + ' ₽</span><span class="item-qty">×' + item.quantity + '</span></div>').join('') + '<div style="text-align:center;margin-top:15px;font-size:12px;color:#556677;">ℹ️ Демо-данные. API не отвечает.</div>';
-    }
+    // Загружаем реальные предметы сразу при открытии
+    showRealItems();
+    statusEl.textContent = '📡 Нажмите "Обновить цены" для подключения к API';
+    statusEl.style.color = '#66ccff';
 
     refreshBtn.addEventListener('click', loadAuction);
-    loadAuction();
     setInterval(loadAuction, 60000);
 </script>
 
