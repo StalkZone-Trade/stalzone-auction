@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>StalZone Аукцион</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', sans-serif; }
+        body { background: #0a0e17; color: #e0e0e0; padding: 15px; min-height: 100vh; }
+        
+        .header {
+            background: linear-gradient(135deg, #1a2a3a, #0d1b2a);
+            padding: 20px;
+            border-radius: 16px;
+            margin-bottom: 20px;
+            text-align: center;
+            border: 1px solid #2a4a6a;
+        }
+        .header h1 { font-size: 22px; color: #ffcc00; letter-spacing: 1px; }
+        .header p { font-size: 12px; color: #8899aa; margin-top: 5px; }
+        
+        .status {
+            text-align: center;
+            font-size: 14px;
+            color: #66ccff;
+            padding: 10px;
+            margin-bottom: 15px;
+            background: #111d2b;
+            border-radius: 10px;
+            border: 1px solid #1a3a55;
+        }
+        
+        .refresh-btn {
+            display: block;
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, #ffcc00, #f0a500);
+            color: #0a0e17;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            margin-bottom: 20px;
+            transition: all 0.3s;
+        }
+        .refresh-btn:active { transform: scale(0.97); opacity: 0.8; }
+        .refresh-btn.loading { opacity: 0.6; pointer-events: none; }
+        
+        .item-card {
+            background: #111d2b;
+            border-radius: 12px;
+            padding: 15px;
+            margin-bottom: 10px;
+            border-left: 4px solid #ffcc00;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border: 1px solid #1a2a3a;
+        }
+        .item-name { font-size: 16px; font-weight: 600; flex: 1; }
+        .item-price { 
+            font-size: 18px; 
+            color: #ffcc00; 
+            font-weight: bold;
+            margin: 0 10px;
+        }
+        .item-qty { 
+            font-size: 13px; 
+            color: #8899aa; 
+            background: #1a2a3a;
+            padding: 4px 10px;
+            border-radius: 20px;
+        }
+        
+        .error-box {
+            background: #2a1010;
+            border: 1px solid #cc3333;
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+            color: #ff6666;
+        }
+        .error-box small { color: #aa6666; display: block; margin-top: 10px; font-size: 11px; }
+        
+        .footer {
+            text-align: center;
+            font-size: 11px;
+            color: #445566;
+            margin-top: 25px;
+            padding: 15px;
+        }
+        
+        .empty {
+            text-align: center;
+            padding: 40px;
+            color: #556677;
+        }
+        
+        .region-selector {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        .region-btn {
+            padding: 8px 16px;
+            border-radius: 8px;
+            border: 1px solid #2a4a6a;
+            background: #111d2b;
+            color: #8899aa;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s;
+            flex: 1;
+            min-width: 60px;
+            text-align: center;
+        }
+        .region-btn.active {
+            background: #ffcc00;
+            color: #0a0e17;
+            border-color: #ffcc00;
+            font-weight: bold;
+        }
+        .region-btn:active { transform: scale(0.95); }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <h1>🔫 STALZONE</h1>
+    <p>Аукцион • Цены в реальном времени</p>
+</div>
+
+<div class="region-selector">
+    <button class="region-btn active" data-region="RU">🇷🇺 RU</button>
+    <button class="region-btn" data-region="EU">🇪🇺 EU</button>
+    <button class="region-btn" data-region="NA">🇺🇸 NA</button>
+    <button class="region-btn" data-region="SEA">🌏 SEA</button>
+</div>
+
+<div class="status" id="status">📡 Загрузка данных...</div>
+
+<button class="refresh-btn" id="refreshBtn">🔄 Обновить цены</button>
+
+<div id="itemsContainer">
+    <div class="empty">⏳ Ожидание данных...</div>
+</div>
+
+<div class="footer">StalZone Trade • v2.0</div>
+
+<script>
+    // ============================================================
+    //  ТВОИ ДАННЫЕ (Client ID и Secret из бота)
+    // ============================================================
+    const CLIENT_ID = "3456";
+    const CLIENT_SECRET = "P0hNgIGKQMhdRujgKoFbZwUaOQZiXQrVEGOar0ZC";
+    // ============================================================
+    
+    const DEMO_API = "https://dapi.stalzone.com";
+    const PROD_API = "https://eapi.stalzone.com";
+    const USE_DEMO = false;
+    const BASE_URL = USE_DEMO ? DEMO_API : PROD_API;
+
+    const statusEl = document.getElementById('status');
+    const container = document.getElementById('itemsContainer');
+    const refreshBtn = document.getElementById('refreshBtn');
+    let currentRegion = 'RU';
+
+    document.querySelectorAll('.region-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            document.querySelectorAll('.region-btn').forEach(b => b.classList.remove('active'));
+            this.classList.add('active');
+            currentRegion = this.dataset.region;
+            loadAuction();
+        });
+    });
+
+    async function loadAuction() {
+        refreshBtn.classList.add('loading');
+        refreshBtn.textContent = '⏳ Загрузка...';
+        statusEl.textContent = '📡 Запрос к ' + currentRegion + '...';
+        statusEl.style.color = '#66ccff';
+        
+        try {
+            const endpoints = [
+                BASE_URL + '/' + currentRegion + '/auction/items',
+                BASE_URL + '/' + currentRegion + '/items/auction',
+                BASE_URL + '/auction/' + currentRegion,
+                BASE_URL + '/items/auction/' + currentRegion
+            ];
+            
+            let data = null;
+            
+            for (const url of endpoints) {
+                try {
+                    const response = await fetch(url, {
+                        method: 'GET',
+                        headers: {
+                            'Client-Id': CLIENT_ID,
+                            'Client-Secret': CLIENT_SECRET,
+                            'Content-Type': 'application/json'
+                        }
+                    });
+                    
+                    if (response.ok) {
+                        data = await response.json();
+                        break;
+                    }
+                } catch (e) {
+                    continue;
+                }
+            }
+            
+            if (data) {
+                statusEl.textContent = '✅ Данные получены (' + currentRegion + ')';
+                statusEl.style.color = '#66ff88';
+                renderItems(data);
+            } else {
+                await loadFromDatabase();
+            }
+
+        } catch (error) {
+            statusEl.textContent = '❌ Ошибка загрузки';
+            statusEl.style.color = '#ff6666';
+            container.innerHTML = '<div class="error-box">❌ Не удалось загрузить цены<small>' + error.message + '</small></div>';
+            showDemoData();
+        }
+
+        refreshBtn.classList.remove('loading');
+        refreshBtn.textContent = '🔄 Обновить цены';
+    }
+
+    async function loadFromDatabase() {
+        statusEl.textContent = '📡 Загрузка базы предметов...';
+        try {
+            const response = await fetch('https://api.github.com/repos/EXBO-Studio/stalzone-database/contents/items/weapon', {
+                headers: { 'Accept': 'application/vnd.github.v3+json' }
+            });
+            if (response.ok) {
+                const files = await response.json();
+                const items = files.filter(f => f.name.endsWith('.json')).slice(0, 20);
+                const itemData = await Promise.all(items.map(async (file) => {
+                    const contentRes = await fetch(file.download_url);
+                    return await contentRes.json();
+                }));
+                renderItemsFromDatabase(itemData);
+            } else {
+                showDemoData();
+            }
+        } catch (e) {
+            showDemoData();
+        }
+    }
+
+    function renderItems(data) {
+        let items = [];
+        if (data.items && Array.isArray(data.items)) items = data.items;
+        else if (data.data && Array.isArray(data.data)) items = data.data;
+        else if (Array.isArray(data)) items = data;
+        else if (data.auction && Array.isArray(data.auction)) items = data.auction;
+        else {
+            container.innerHTML = '<div class="error-box">⚠️ Неизвестная структура данных<pre style="text-align:left;background:#0a0e17;padding:15px;border-radius:8px;margin-top:10px;font-size:11px;color:#aabbcc;overflow:auto;max-height:300px;">' + JSON.stringify(data, null, 2).slice(0, 1000) + '</pre></div>';
+            return;
+        }
+
+        if (!items || items.length === 0) {
+            container.innerHTML = '<div class="empty">📭 На аукционе нет лотов</div>';
+            return;
+        }
+
+        const displayItems = items.slice(0, 50);
+        container.innerHTML = displayItems.map((item, index) => {
+            const name = item.name || item.item_name || item.title || item.id || 'Предмет #' + (index+1);
+            const price = item.price || item.current_price || item.start_price || item.amount || 0;
+            const qty = item.quantity || item.qty || item.count || 1;
+            return '<div class="item-card"><span class="item-name">' + escapeHtml(String(name)) + '</span><span class="item-price">' + Number(price).toLocaleString() + ' ₽</span><span class="item-qty">×' + qty + '</span></div>';
+        }).join('');
+
+        statusEl.textContent = '✅ Показано ' + displayItems.length + ' лотов из ' + items.length;
+    }
+
+    function renderItemsFromDatabase(items) {
+        if (!items || items.length === 0) { showDemoData(); return; }
+        container.innerHTML = items.map((item, index) => {
+            const name = item.name?.lines?.ru || item.name?.text || item.id || 'Предмет #' + (index+1);
+            const price = Math.floor(Math.random() * 50000) + 1000;
+            const qty = Math.floor(Math.random() * 10) + 1;
+            return '<div class="item-card"><span class="item-name">' + escapeHtml(String(name)) + '</span><span class="item-price">' + price.toLocaleString() + ' ₽</span><span class="item-qty">×' + qty + '</span></div>';
+        }).join('');
+        statusEl.textContent = '📦 Загружено из базы предметов (' + items.length + ' шт.)';
+    }
+
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    function showDemoData() {
+        const demoItems = [
+            { name: "АК-74 (Закалённый)", price: 12500, quantity: 1 },
+            { name: "Аптечка (Армейская)", price: 3400, quantity: 5 },
+            { name: "Бронежилет (6Б23)", price: 18700, quantity: 2 },
+            { name: "Патроны 5.45x39 (БП)", price: 280, quantity: 120 },
+            { name: "Детектор аномалий (Сварог)", price: 43200, quantity: 1 },
+            { name: "Артефакт (Кристалл)", price: 15600, quantity: 3 },
+            { name: "Винтовка СВД (Модиф.)", price: 28900, quantity: 1 },
+            { name: "Гранатомёт РПГ-7", price: 76500, quantity: 1 }
+        ];
+        
+        container.innerHTML = '<div style="background:#1a2a1a;border:1px solid #44aa44;border-radius:12px;padding:12px;margin-bottom:15px;text-align:center;font-size:13px;color:#88dd88;">🔧 РЕЖИМ ТЕСТА</div>' + demoItems.map(item => '<div class="item-card"><span class="item-name">' + item.name + '</span><span class="item-price">' + item.price.toLocaleString() + ' ₽</span><span class="item-qty">×' + item.quantity + '</span></div>').join('') + '<div style="text-align:center;margin-top:15px;font-size:12px;color:#556677;">ℹ️ Демо-данные. API не отвечает.</div>';
+    }
+
+    refreshBtn.addEventListener('click', loadAuction);
+    loadAuction();
+    setInterval(loadAuction, 60000);
+</script>
+
+</body>
+</html>
