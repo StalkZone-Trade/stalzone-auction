@@ -63,6 +63,7 @@
         .item-name { font-size: 16px; font-weight: 600; flex: 1; }
         .item-price { font-size: 18px; color: #ffcc00; font-weight: bold; margin: 0 10px; }
         .item-qty { font-size: 13px; color: #8899aa; background: #1a2a3a; padding: 4px 10px; border-radius: 20px; }
+        .item-id { font-size: 10px; color: #445566; margin-top: 2px; }
         .footer { text-align: center; font-size: 11px; color: #445566; margin-top: 25px; padding: 15px; }
         .empty { text-align: center; padding: 40px; color: #556677; }
         .region-selector {
@@ -116,7 +117,7 @@
 
 <div class="header">
     <h1>🔫 STALZONE</h1>
-    <p>Аукцион • Цены в реальном времени</p>
+    <p>Аукцион • История цен</p>
 </div>
 
 <div class="region-selector">
@@ -130,7 +131,7 @@
 <button class="refresh-btn" id="refreshBtn">🔄 Обновить цены</button>
 <div id="itemsContainer"><div class="empty">⏳ Нажмите "Обновить цены"</div></div>
 <div id="debugBox" class="debug-box"></div>
-<div class="footer">StalZone Trade • v4.0 • Secret Based Auth</div>
+<div class="footer">StalZone Trade • v5.0 • История цен</div>
 
 <script>
     // ============================================================
@@ -141,13 +142,13 @@
     // ============================================================
 
     const BASE_URL = "https://eapi.stalzone.com";
+    const GITHUB_ITEMS_URL = "https://api.github.com/repos/EXBO-Studio/stalzone-database/contents/ru/items/weapon";
+
     const statusEl = document.getElementById('status');
     const container = document.getElementById('itemsContainer');
     const refreshBtn = document.getElementById('refreshBtn');
     const debugBox = document.getElementById('debugBox');
     let currentRegion = 'RU';
-
-    // ---- ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ----
 
     function setStatus(text, type = 'info') {
         statusEl.textContent = text;
@@ -170,141 +171,161 @@
         return Number(price).toLocaleString() + ' ₽';
     }
 
+    // ---- ЗАГРУЗКА СПИСКА ПРЕДМЕТОВ ИЗ GITHUB ----
+
+    async function loadItemIds() {
+        try {
+            const response = await fetch(GITHUB_ITEMS_URL, {
+                headers: { 'Accept': 'application/vnd.github.v3+json' }
+            });
+            if (!response.ok) throw new Error('Не удалось загрузить список предметов');
+            const data = await response.json();
+            // Фильтруем только JSON-файлы и берём первые 20
+            const items = data
+                .filter(f => f.name.endsWith('.json'))
+                .slice(0, 20)
+                .map(f => f.name.replace('.json', ''));
+            return items;
+        } catch (error) {
+            console.error('Ошибка загрузки ID предметов:', error);
+            return [];
+        }
+    }
+
+    // ---- ЗАГРУЗКА НАЗВАНИЯ ПРЕДМЕТА ПО ID ----
+
+    async function loadItemName(itemId) {
+        try {
+            const url = `https://raw.githubusercontent.com/EXBO-Studio/stalzone-database/main/ru/items/weapon/${itemId}.json`;
+            const response = await fetch(url);
+            if (!response.ok) return itemId;
+            const data = await response.json();
+            if (data.name && data.name.lines && data.name.lines.ru) {
+                return data.name.lines.ru;
+            }
+            return itemId;
+        } catch (error) {
+            return itemId;
+        }
+    }
+
+    // ---- ЗАГРУЗКА ИСТОРИИ ЦЕН ДЛЯ ПРЕДМЕТА ----
+
+    async function loadPriceHistory(itemId, region) {
+        try {
+            const url = `${BASE_URL}/${region}/auction/${itemId}/history?limit=1`;
+            const response = await fetch(url, {
+                method: 'GET',
+                headers: {
+                    'Client-Id': CLIENT_ID,
+                    'Client-Secret': CLIENT_SECRET,
+                    'Content-Type': 'application/json'
+                }
+            });
+            if (!response.ok) return null;
+            const data = await response.json();
+            return data;
+        } catch (error) {
+            console.error('Ошибка загрузки цен для', itemId, error);
+            return null;
+        }
+    }
+
     // ---- ОСНОВНАЯ ФУНКЦИЯ ЗАГРУЗКИ ----
 
     async function loadAuction() {
         refreshBtn.classList.add('loading');
         refreshBtn.textContent = '⏳ Загрузка...';
-        setStatus('📡 Запрос к ' + currentRegion + '...', 'loading');
+        setStatus('📡 Загрузка списка предметов...', 'loading');
         container.innerHTML = '<div class="empty">⏳ Загрузка данных...</div>';
 
-        // Пробуем разные возможные эндпоинты
-        const possibleEndpoints = [
-            '/auction/items',
-            '/items/auction',
-            '/auction',
-            '/market',
-            '/items'
-        ];
-
-        let lastError = null;
-
-        for (const endpoint of possibleEndpoints) {
-            const url = BASE_URL + '/' + currentRegion + endpoint;
-            try {
-                const response = await fetch(url, {
-                    method: 'GET',
-                    headers: {
-                        'Client-Id': CLIENT_ID,
-                        'Client-Secret': CLIENT_SECRET,
-                        'Content-Type': 'application/json'
-                    }
-                });
-
-                const responseText = await response.text();
-                let data;
-                try {
-                    data = JSON.parse(responseText);
-                } catch (e) {
-                    data = responseText;
-                }
-
-                // Если получили успешный ответ
-                if (response.ok) {
-                    setStatus('✅ Данные получены (' + currentRegion + ')', 'success');
-                    renderItems(data);
-                    debugLog({ endpoint: url, status: response.status, data: data });
-                    refreshBtn.classList.remove('loading');
-                    refreshBtn.textContent = '🔄 Обновить цены';
-                    return;
-                } else {
-                    // Если статус 401 или 403 — значит эндпоинт правильный, но нужна авторизация
-                    if (response.status === 401 || response.status === 403) {
-                        setStatus('⚠️ Требуется авторизация. Проверь Client ID и Secret.', 'error');
-                        debugLog({ endpoint: url, status: response.status, data: data });
-                        refreshBtn.classList.remove('loading');
-                        refreshBtn.textContent = '🔄 Обновить цены';
-                        return;
-                    }
-                    lastError = { endpoint: url, status: response.status, data: data };
-                }
-            } catch (error) {
-                lastError = { endpoint: url, error: error.message };
+        try {
+            // 1. Получаем ID предметов
+            const itemIds = await loadItemIds();
+            if (itemIds.length === 0) {
+                setStatus('❌ Не удалось загрузить список предметов', 'error');
+                container.innerHTML = '<div class="empty">❌ Ошибка загрузки базы предметов</div>';
+                refreshBtn.classList.remove('loading');
+                refreshBtn.textContent = '🔄 Обновить цены';
+                return;
             }
+
+            setStatus(`📡 Загрузка цен для ${itemIds.length} предметов...`, 'loading');
+
+            // 2. Для каждого предмета загружаем имя и цену
+            const results = [];
+            let loaded = 0;
+
+            for (const itemId of itemIds) {
+                const name = await loadItemName(itemId);
+                const priceData = await loadPriceHistory(itemId, currentRegion);
+                let price = 0;
+                let qty = 1;
+
+                if (priceData && Array.isArray(priceData) && priceData.length > 0) {
+                    const last = priceData[0];
+                    price = last.price || last.amount || 0;
+                    qty = last.quantity || last.qty || 1;
+                }
+
+                results.push({ id: itemId, name: name, price: price, qty: qty });
+                loaded++;
+                if (loaded % 5 === 0) {
+                    setStatus(`📡 Загружено ${loaded}/${itemIds.length}...`, 'loading');
+                }
+            }
+
+            // 3. Отображаем результаты
+            const sorted = results.sort((a, b) => b.price - a.price);
+            const filtered = sorted.filter(item => item.price > 0);
+
+            if (filtered.length === 0) {
+                setStatus(`⚠️ Нет данных по ценам для региона ${currentRegion}`, 'info');
+                container.innerHTML = `
+                    <div class="empty">
+                        📭 Нет цен для региона ${currentRegion}
+                        <br><br>
+                        <small style="color:#445566;">Попробуй другой регион</small>
+                    </div>
+                `;
+                debugLog({ region: currentRegion, items: results });
+                refreshBtn.classList.remove('loading');
+                refreshBtn.textContent = '🔄 Обновить цены';
+                return;
+            }
+
+            // Показываем топ-50
+            const displayItems = filtered.slice(0, 50);
+            container.innerHTML = displayItems.map(item => {
+                return `
+                    <div class="item-card">
+                        <div>
+                            <div class="item-name">${escapeHtml(item.name)}</div>
+                            <div class="item-id">ID: ${item.id}</div>
+                        </div>
+                        <span class="item-price">${formatPrice(item.price)}</span>
+                        <span class="item-qty">×${item.qty}</span>
+                    </div>
+                `;
+            }).join('');
+
+            setStatus(`✅ Показано ${displayItems.length} предметов из ${filtered.length} (с ценами)`, 'success');
+            debugLog({ region: currentRegion, total: results.length, withPrice: filtered.length });
+
+        } catch (error) {
+            setStatus('❌ Ошибка загрузки', 'error');
+            container.innerHTML = `
+                <div class="empty" style="color:#ff6666;">
+                    ❌ Ошибка: ${error.message}
+                    <br><br>
+                    <small style="color:#445566;">Попробуй обновить страницу</small>
+                </div>
+            `;
+            debugLog({ error: error.message });
         }
 
-        // Если ни один эндпоинт не сработал
-        setStatus('❌ Не удалось найти эндпоинт для аукциона', 'error');
-        container.innerHTML = `
-            <div class="empty" style="color:#ff6666;">
-                ❌ Не удалось подключиться к API
-                <br><br>
-                <small style="color:#445566;">Попробуй обновить страницу или проверь интернет</small>
-                <br><br>
-                <small style="color:#445566;">Регион: ${currentRegion}</small>
-            </div>
-        `;
-        debugLog(lastError);
         refreshBtn.classList.remove('loading');
         refreshBtn.textContent = '🔄 Обновить цены';
-    }
-
-    // ---- ОТОБРАЖЕНИЕ ДАННЫХ ----
-
-    function renderItems(data) {
-        // Пытаемся извлечь массив предметов из разных форматов
-        let items = [];
-
-        if (Array.isArray(data)) {
-            items = data;
-        } else if (data.items && Array.isArray(data.items)) {
-            items = data.items;
-        } else if (data.data && Array.isArray(data.data)) {
-            items = data.data;
-        } else if (data.auction && Array.isArray(data.auction)) {
-            items = data.auction;
-        } else if (data.lots && Array.isArray(data.lots)) {
-            items = data.lots;
-        } else if (data.result && Array.isArray(data.result)) {
-            items = data.result;
-        } else if (data.list && Array.isArray(data.list)) {
-            items = data.list;
-        } else {
-            // Если структура неизвестна — показываем сырые данные
-            container.innerHTML = `
-                <div class="empty" style="color:#ffcc00;">
-                    ⚠️ Неизвестная структура данных
-                    <br><br>
-                    <small style="color:#445566;">Показываем сырые данные из API</small>
-                </div>
-            `;
-            debugLog(data);
-            return;
-        }
-
-        if (!items || items.length === 0) {
-            container.innerHTML = '<div class="empty">📭 На аукционе нет лотов</div>';
-            return;
-        }
-
-        // Отображаем до 50 предметов
-        const displayItems = items.slice(0, 50);
-        container.innerHTML = displayItems.map((item, index) => {
-            // Пытаемся извлечь имя, цену и количество
-            const name = item.name || item.title || item.item_name || item.id || 'Предмет #' + (index + 1);
-            const price = item.price || item.current_price || item.start_price || item.amount || item.buyout || 0;
-            const qty = item.quantity || item.qty || item.count || 1;
-
-            return `
-                <div class="item-card">
-                    <span class="item-name">${escapeHtml(String(name))}</span>
-                    <span class="item-price">${formatPrice(price)}</span>
-                    <span class="item-qty">×${qty}</span>
-                </div>
-            `;
-        }).join('');
-
-        setStatus(`✅ Показано ${displayItems.length} лотов из ${items.length}`, 'success');
     }
 
     // ---- КНОПКИ РЕГИОНОВ ----
@@ -324,7 +345,6 @@
 
     // ---- АВТОЗАГРУЗКА ПРИ ОТКРЫТИИ ----
 
-    // Загружаем при открытии
     setTimeout(() => {
         loadAuction();
     }, 500);
