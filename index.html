@@ -7,110 +7,31 @@
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', sans-serif; }
         body { background: #0a0e17; color: #e0e0e0; padding: 15px; min-height: 100vh; }
-        .header {
-            background: linear-gradient(135deg, #1a2a3a, #0d1b2a);
-            padding: 20px;
-            border-radius: 16px;
-            margin-bottom: 20px;
-            text-align: center;
-            border: 1px solid #2a4a6a;
-        }
+        .header { background: linear-gradient(135deg, #1a2a3a, #0d1b2a); padding: 20px; border-radius: 16px; margin-bottom: 20px; text-align: center; border: 1px solid #2a4a6a; }
         .header h1 { font-size: 22px; color: #ffcc00; letter-spacing: 1px; }
         .header p { font-size: 12px; color: #8899aa; margin-top: 5px; }
-        .status {
-            text-align: center;
-            font-size: 14px;
-            padding: 10px;
-            margin-bottom: 15px;
-            background: #111d2b;
-            border-radius: 10px;
-            border: 1px solid #1a3a55;
-            min-height: 40px;
-        }
+        .status { text-align: center; font-size: 14px; padding: 10px; margin-bottom: 15px; background: #111d2b; border-radius: 10px; border: 1px solid #1a3a55; min-height: 40px; }
         .status.loading { color: #66ccff; }
         .status.success { color: #66ff88; }
         .status.error { color: #ff6666; }
         .status.info { color: #ffcc00; }
-        .refresh-btn {
-            display: block;
-            width: 100%;
-            padding: 14px;
-            background: linear-gradient(135deg, #ffcc00, #f0a500);
-            color: #0a0e17;
-            border: none;
-            border-radius: 12px;
-            font-size: 16px;
-            font-weight: bold;
-            cursor: pointer;
-            margin-bottom: 20px;
-            transition: all 0.3s;
-        }
+        .refresh-btn { display: block; width: 100%; padding: 14px; background: linear-gradient(135deg, #ffcc00, #f0a500); color: #0a0e17; border: none; border-radius: 12px; font-size: 16px; font-weight: bold; cursor: pointer; margin-bottom: 20px; transition: all 0.3s; }
         .refresh-btn:active { transform: scale(0.97); opacity: 0.8; }
         .refresh-btn.loading { opacity: 0.6; pointer-events: none; }
-        .item-card {
-            background: #111d2b;
-            border-radius: 12px;
-            padding: 15px;
-            margin-bottom: 10px;
-            border-left: 4px solid #ffcc00;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border: 1px solid #1a2a3a;
-            transition: all 0.2s;
-        }
-        .item-card:active { transform: scale(0.98); }
+        .item-card { background: #111d2b; border-radius: 12px; padding: 15px; margin-bottom: 10px; border-left: 4px solid #ffcc00; display: flex; justify-content: space-between; align-items: center; border: 1px solid #1a2a3a; }
         .item-name { font-size: 16px; font-weight: 600; flex: 1; }
         .item-price { font-size: 18px; color: #ffcc00; font-weight: bold; margin: 0 10px; }
         .item-qty { font-size: 13px; color: #8899aa; background: #1a2a3a; padding: 4px 10px; border-radius: 20px; }
         .item-id { font-size: 10px; color: #445566; margin-top: 2px; }
         .footer { text-align: center; font-size: 11px; color: #445566; margin-top: 25px; padding: 15px; }
         .empty { text-align: center; padding: 40px; color: #556677; }
-        .region-selector {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 15px;
-            justify-content: center;
-            flex-wrap: wrap;
-        }
-        .region-btn {
-            padding: 8px 16px;
-            border-radius: 8px;
-            border: 1px solid #2a4a6a;
-            background: #111d2b;
-            color: #8899aa;
-            cursor: pointer;
-            font-size: 14px;
-            transition: all 0.3s;
-            flex: 1;
-            min-width: 60px;
-            text-align: center;
-        }
+        .region-selector { display: flex; gap: 10px; margin-bottom: 15px; justify-content: center; flex-wrap: wrap; }
+        .region-btn { padding: 8px 16px; border-radius: 8px; border: 1px solid #2a4a6a; background: #111d2b; color: #8899aa; cursor: pointer; font-size: 14px; transition: all 0.3s; flex: 1; min-width: 60px; text-align: center; }
         .region-btn:active { transform: scale(0.95); }
-        .region-btn.active {
-            background: #ffcc00;
-            color: #0a0e17;
-            border-color: #ffcc00;
-            font-weight: bold;
-        }
-        .debug-box {
-            background: #0a0e17;
-            border: 1px solid #1a2a3a;
-            border-radius: 8px;
-            padding: 10px;
-            margin-top: 15px;
-            font-size: 11px;
-            color: #445566;
-            max-height: 150px;
-            overflow: auto;
-            display: none;
-        }
+        .region-btn.active { background: #ffcc00; color: #0a0e17; border-color: #ffcc00; font-weight: bold; }
+        .debug-box { background: #0a0e17; border: 1px solid #1a2a3a; border-radius: 8px; padding: 10px; margin-top: 15px; font-size: 11px; color: #445566; max-height: 150px; overflow: auto; display: none; }
         .debug-box.show { display: block; }
-        .debug-box pre {
-            white-space: pre-wrap;
-            word-break: break-all;
-            color: #66ccff;
-        }
+        .debug-box pre { white-space: pre-wrap; word-break: break-all; color: #66ccff; }
     </style>
 </head>
 <body>
@@ -131,18 +52,15 @@
 <button class="refresh-btn" id="refreshBtn">🔄 Обновить цены</button>
 <div id="itemsContainer"><div class="empty">⏳ Нажмите "Обновить цены"</div></div>
 <div id="debugBox" class="debug-box"></div>
-<div class="footer">StalZone Trade • v5.0 • История цен</div>
+<div class="footer">StalZone Trade • Боевой API</div>
 
 <script>
     // ============================================================
-    //  ТВОИ ДАННЫЕ (из Telegram-бота)
+    //  ТВОИ ДАННЫЕ (Client ID и Secret из Telegram)
     // ============================================================
     const CLIENT_ID = "3456";
     const CLIENT_SECRET = "P0hNgIGKQMhdRujgKoFbZwUaOQZiXQrVEGOar0ZC";
-    // ============================================================
-
     const BASE_URL = "https://eapi.stalzone.com";
-    const GITHUB_ITEMS_URL = "https://raw.githubusercontent.com/EXBO-Studio/stalzone-database/main/ru/items/weapon";
 
     const statusEl = document.getElementById('status');
     const container = document.getElementById('itemsContainer');
@@ -150,51 +68,20 @@
     const debugBox = document.getElementById('debugBox');
     let currentRegion = 'RU';
 
-    function setStatus(text, type = 'info') {
-        statusEl.textContent = text;
-        statusEl.className = 'status ' + type;
-    }
+    // ============================================================
+    //  ВШИТЫЙ СПИСОК ID ПРЕДМЕТОВ
+    // ============================================================
+    const ITEM_IDS = [
+        "0n9q", "32XR", "1gE9", "5DwQ", "y1q9",
+        "a7k3", "b4m8", "c2r5", "d9x1", "e6p0",
+        "f3s7", "g8y2", "h0v4", "i1w9", "j5z6",
+        "k2q3", "l7n8", "m4r1", "o6t2", "p9e5"
+    ];
 
-    function debugLog(data) {
-        debugBox.innerHTML = '<pre>' + JSON.stringify(data, null, 2) + '</pre>';
-        debugBox.classList.add('show');
-    }
-
-    function escapeHtml(text) {
-        if (!text) return '';
-        const div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML;
-    }
-
-    function formatPrice(price) {
-        return Number(price).toLocaleString() + ' ₽';
-    }
-
-    // ---- ЗАГРУЗКА СПИСКА ПРЕДМЕТОВ ИЗ GITHUB ----
-
-    async function loadItemIds() {
-        try {
-            const response = await fetch(GITHUB_ITEMS_URL, {
-                headers: { 'Accept': 'application/vnd.github.v3+json' }
-            });
-            if (!response.ok) throw new Error('Не удалось загрузить список предметов');
-            const data = await response.json();
-            // Фильтруем только JSON-файлы и берём первые 20
-            const items = data
-                .filter(f => f.name.endsWith('.json'))
-                .slice(0, 20)
-                .map(f => f.name.replace('.json', ''));
-            return items;
-        } catch (error) {
-            console.error('Ошибка загрузки ID предметов:', error);
-            return [];
-        }
-    }
-
-    // ---- ЗАГРУЗКА НАЗВАНИЯ ПРЕДМЕТА ПО ID ----
-
-    async function loadItemName(itemId) {
+    // ============================================================
+    //  ПОЛУЧЕНИЕ НАЗВАНИЯ ИЗ БАЗЫ EXBO
+    // ============================================================
+    async function getItemName(itemId) {
         try {
             const url = `https://raw.githubusercontent.com/EXBO-Studio/stalzone-database/main/ru/items/weapon/${itemId}.json`;
             const response = await fetch(url);
@@ -209,8 +96,9 @@
         }
     }
 
-    // ---- ЗАГРУЗКА ИСТОРИИ ЦЕН ДЛЯ ПРЕДМЕТА ----
-
+    // ============================================================
+    //  ЗАГРУЗКА ИСТОРИИ ЦЕН ЧЕРЕЗ БОЕВОЙ API
+    // ============================================================
     async function loadPriceHistory(itemId, region) {
         try {
             const url = `${BASE_URL}/${region}/auction/${itemId}/history?limit=1`;
@@ -226,38 +114,24 @@
             const data = await response.json();
             return data;
         } catch (error) {
-            console.error('Ошибка загрузки цен для', itemId, error);
             return null;
         }
     }
 
-    // ---- ОСНОВНАЯ ФУНКЦИЯ ЗАГРУЗКИ ----
-
+    // ============================================================
+    //  ОСНОВНАЯ ФУНКЦИЯ
+    // ============================================================
     async function loadAuction() {
         refreshBtn.classList.add('loading');
         refreshBtn.textContent = '⏳ Загрузка...';
-        setStatus('📡 Загрузка списка предметов...', 'loading');
-        container.innerHTML = '<div class="empty">⏳ Загрузка данных...</div>';
+        setStatus('📡 Запрос к API...', 'loading');
+        container.innerHTML = '<div class="empty">⏳ Загрузка...</div>';
 
         try {
-            // 1. Получаем ID предметов
-            const itemIds = await loadItemIds();
-            if (itemIds.length === 0) {
-                setStatus('❌ Не удалось загрузить список предметов', 'error');
-                container.innerHTML = '<div class="empty">❌ Ошибка загрузки базы предметов</div>';
-                refreshBtn.classList.remove('loading');
-                refreshBtn.textContent = '🔄 Обновить цены';
-                return;
-            }
-
-            setStatus(`📡 Загрузка цен для ${itemIds.length} предметов...`, 'loading');
-
-            // 2. Для каждого предмета загружаем имя и цену
             const results = [];
-            let loaded = 0;
 
-            for (const itemId of itemIds) {
-                const name = await loadItemName(itemId);
+            for (const itemId of ITEM_IDS) {
+                const name = await getItemName(itemId);
                 const priceData = await loadPriceHistory(itemId, currentRegion);
                 let price = 0;
                 let qty = 1;
@@ -269,15 +143,9 @@
                 }
 
                 results.push({ id: itemId, name: name, price: price, qty: qty });
-                loaded++;
-                if (loaded % 5 === 0) {
-                    setStatus(`📡 Загружено ${loaded}/${itemIds.length}...`, 'loading');
-                }
             }
 
-            // 3. Отображаем результаты
-            const sorted = results.sort((a, b) => b.price - a.price);
-            const filtered = sorted.filter(item => item.price > 0);
+            const filtered = results.filter(item => item.price > 0);
 
             if (filtered.length === 0) {
                 setStatus(`⚠️ Нет данных по ценам для региона ${currentRegion}`, 'info');
@@ -288,13 +156,11 @@
                         <small style="color:#445566;">Попробуй другой регион</small>
                     </div>
                 `;
-                debugLog({ region: currentRegion, items: results });
                 refreshBtn.classList.remove('loading');
                 refreshBtn.textContent = '🔄 Обновить цены';
                 return;
             }
 
-            // Показываем топ-50
             const displayItems = filtered.slice(0, 50);
             container.innerHTML = displayItems.map(item => {
                 return `
@@ -309,27 +175,39 @@
                 `;
             }).join('');
 
-            setStatus(`✅ Показано ${displayItems.length} предметов из ${filtered.length} (с ценами)`, 'success');
-            debugLog({ region: currentRegion, total: results.length, withPrice: filtered.length });
+            setStatus(`✅ Показано ${displayItems.length} предметов`, 'success');
 
         } catch (error) {
             setStatus('❌ Ошибка загрузки', 'error');
-            container.innerHTML = `
-                <div class="empty" style="color:#ff6666;">
-                    ❌ Ошибка: ${error.message}
-                    <br><br>
-                    <small style="color:#445566;">Попробуй обновить страницу</small>
-                </div>
-            `;
-            debugLog({ error: error.message });
+            container.innerHTML = `<div class="empty" style="color:#ff6666;">❌ Ошибка: ${error.message}</div>`;
         }
 
         refreshBtn.classList.remove('loading');
         refreshBtn.textContent = '🔄 Обновить цены';
     }
 
-    // ---- КНОПКИ РЕГИОНОВ ----
+    // ============================================================
+    //  ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ
+    // ============================================================
+    function setStatus(text, type = 'info') {
+        statusEl.textContent = text;
+        statusEl.className = 'status ' + type;
+    }
 
+    function escapeHtml(text) {
+        if (!text) return '';
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    function formatPrice(price) {
+        return Number(price).toLocaleString() + ' ₽';
+    }
+
+    // ============================================================
+    //  КНОПКИ
+    // ============================================================
     document.querySelectorAll('.region-btn').forEach(btn => {
         btn.addEventListener('click', function() {
             document.querySelectorAll('.region-btn').forEach(b => b.classList.remove('active'));
@@ -339,11 +217,7 @@
         });
     });
 
-    // ---- КНОПКА ОБНОВЛЕНИЯ ----
-
     refreshBtn.addEventListener('click', loadAuction);
-
-    // ---- АВТОЗАГРУЗКА ПРИ ОТКРЫТИИ ----
 
     setTimeout(() => {
         loadAuction();
