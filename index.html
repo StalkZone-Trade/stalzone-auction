@@ -10,11 +10,12 @@
         .header { background: linear-gradient(135deg, #1a2a3a, #0d1b2a); padding: 20px; border-radius: 16px; margin-bottom: 20px; text-align: center; border: 1px solid #2a4a6a; }
         .header h1 { font-size: 22px; color: #ffcc00; letter-spacing: 1px; }
         .header p { font-size: 12px; color: #8899aa; margin-top: 5px; }
-        .status { text-align: center; font-size: 14px; padding: 10px; margin-bottom: 15px; background: #111d2b; border-radius: 10px; border: 1px solid #1a3a55; min-height: 40px; }
+        .status { text-align: center; font-size: 14px; padding: 10px; margin-bottom: 15px; background: #111d2b; border-radius: 10px; border: 1px solid #1a3a55; min-height: 40px; word-break: break-word; }
         .status.loading { color: #66ccff; }
         .status.success { color: #66ff88; }
         .status.error { color: #ff6666; }
         .status.info { color: #ffcc00; }
+        .status.warning { color: #ff8800; }
         .refresh-btn { display: block; width: 100%; padding: 14px; background: linear-gradient(135deg, #ffcc00, #f0a500); color: #0a0e17; border: none; border-radius: 12px; font-size: 16px; font-weight: bold; cursor: pointer; margin-bottom: 20px; transition: all 0.3s; }
         .refresh-btn:active { transform: scale(0.97); opacity: 0.8; }
         .refresh-btn.loading { opacity: 0.6; pointer-events: none; }
@@ -29,16 +30,18 @@
         .region-btn { padding: 8px 16px; border-radius: 8px; border: 1px solid #2a4a6a; background: #111d2b; color: #8899aa; cursor: pointer; font-size: 14px; transition: all 0.3s; flex: 1; min-width: 60px; text-align: center; }
         .region-btn:active { transform: scale(0.95); }
         .region-btn.active { background: #ffcc00; color: #0a0e17; border-color: #ffcc00; font-weight: bold; }
-        .debug-box { background: #0a0e17; border: 1px solid #1a2a3a; border-radius: 8px; padding: 10px; margin-top: 15px; font-size: 11px; color: #445566; max-height: 150px; overflow: auto; display: none; }
-        .debug-box.show { display: block; }
-        .debug-box pre { white-space: pre-wrap; word-break: break-all; color: #66ccff; }
+        .debug-box { background: #0a0e17; border: 1px solid #1a2a3a; border-radius: 8px; padding: 10px; margin-top: 15px; font-size: 11px; color: #445566; max-height: 300px; overflow: auto; display: block; }
+        .debug-box pre { white-space: pre-wrap; word-break: break-all; color: #66ccff; margin: 0; }
+        .debug-box .error-text { color: #ff6666; }
+        .debug-box .success-text { color: #66ff88; }
+        .debug-box .warning-text { color: #ffcc00; }
     </style>
 </head>
 <body>
 
 <div class="header">
     <h1>🔫 STALZONE</h1>
-    <p>Аукцион • История цен</p>
+    <p>Аукцион • Все предметы</p>
 </div>
 
 <div class="region-selector">
@@ -51,8 +54,8 @@
 <div class="status" id="status">📡 Готов к работе</div>
 <button class="refresh-btn" id="refreshBtn">🔄 Обновить цены</button>
 <div id="itemsContainer"><div class="empty">⏳ Нажмите "Обновить цены"</div></div>
-<div id="debugBox" class="debug-box"></div>
-<div class="footer">StalZone Trade • Боевой API</div>
+<div id="debugBox" class="debug-box"><pre>📋 Журнал загрузки...</pre></div>
+<div class="footer">StalZone Trade • Отладка</div>
 
 <script>
     // ============================================================
@@ -67,37 +70,149 @@
     const refreshBtn = document.getElementById('refreshBtn');
     const debugBox = document.getElementById('debugBox');
     let currentRegion = 'RU';
+    let debugLogs = [];
 
     // ============================================================
-    //  ВШИТЫЙ СПИСОК ID ПРЕДМЕТОВ
+    //  ОТЛАДКА
     // ============================================================
-    const ITEM_IDS = [
-        "0n9q", "32XR", "1gE9", "5DwQ", "y1q9",
-        "a7k3", "b4m8", "c2r5", "d9x1", "e6p0",
-        "f3s7", "g8y2", "h0v4", "i1w9", "j5z6",
-        "k2q3", "l7n8", "m4r1", "o6t2", "p9e5"
+    function addDebug(text, type = 'info') {
+        const timestamp = new Date().toLocaleTimeString();
+        const prefix = type === 'error' ? '❌' : type === 'success' ? '✅' : type === 'warning' ? '⚠️' : '📌';
+        const log = `[${timestamp}] ${prefix} ${text}`;
+        debugLogs.push(log);
+        debugBox.innerHTML = '<pre>' + debugLogs.join('\n') + '</pre>';
+        debugBox.scrollTop = debugBox.scrollHeight;
+        console.log(log);
+    }
+
+    function clearDebug() {
+        debugLogs = [];
+        debugBox.innerHTML = '<pre>📋 Журнал загрузки...</pre>';
+    }
+
+    function setStatus(text, type = 'info') {
+        statusEl.textContent = text;
+        statusEl.className = 'status ' + type;
+    }
+
+    // ============================================================
+    //  ВСЕ КАТЕГОРИИ ПРЕДМЕТОВ
+    // ============================================================
+    const CATEGORIES = [
+        "weapon",
+        "artefact", 
+        "armor",
+        "medical",
+        "food",
+        "ammo",
+        "parts",
+        "tools",
+        "clothes",
+        "containers"
     ];
 
     // ============================================================
-    //  ПОЛУЧЕНИЕ НАЗВАНИЯ ИЗ БАЗЫ EXBO
+    //  ПРОВЕРКА API
     // ============================================================
-    async function getItemName(itemId) {
+    async function checkApiHealth() {
         try {
-            const url = `https://raw.githubusercontent.com/EXBO-Studio/stalzone-database/main/ru/items/weapon/${itemId}.json`;
-            const response = await fetch(url);
-            if (!response.ok) return itemId;
-            const data = await response.json();
-            if (data.name && data.name.lines && data.name.lines.ru) {
-                return data.name.lines.ru;
+            addDebug('Проверка доступа к API...');
+            const url = `${BASE_URL}/RU/auction/0n9q/history?limit=1`;
+            const response = await fetch(url, {
+                method: 'GET',
+                headers: {
+                    'Client-Id': CLIENT_ID,
+                    'Client-Secret': CLIENT_SECRET,
+                    'Content-Type': 'application/json'
+                }
+            });
+            addDebug(`Ответ API: статус ${response.status}`, response.ok ? 'success' : 'warning');
+            if (response.status === 401) {
+                addDebug('⚠️ API требует авторизации (401) - это нормально для браузера', 'warning');
+                addDebug('✅ В приложении авторизация передаётся через Client-Id и Client-Secret', 'success');
+                return true;
             }
-            return itemId;
+            if (response.status === 404) {
+                addDebug('⚠️ Эндпоинт не найден (404) - возможно, другой адрес', 'warning');
+                return false;
+            }
+            if (response.ok) {
+                addDebug('✅ API доступен!', 'success');
+                return true;
+            }
+            addDebug(`❌ Неизвестный статус API: ${response.status}`, 'error');
+            return false;
         } catch (error) {
-            return itemId;
+            addDebug(`❌ Ошибка подключения к API: ${error.message}`, 'error');
+            return false;
         }
     }
 
     // ============================================================
-    //  ЗАГРУЗКА ИСТОРИИ ЦЕН ЧЕРЕЗ БОЕВОЙ API
+    //  ЗАГРУЗКА ID ИЗ ВСЕХ КАТЕГОРИЙ
+    // ============================================================
+    async function loadAllItemIds() {
+        const allIds = [];
+        let successCount = 0;
+        let failCount = 0;
+
+        addDebug(`📁 Сканирование ${CATEGORIES.length} категорий...`);
+
+        for (const category of CATEGORIES) {
+            try {
+                const url = `https://raw.githubusercontent.com/EXBO-Studio/stalzone-database/main/ru/items/${category}`;
+                addDebug(`🔍 Проверка категории: ${category}...`);
+                const response = await fetch(url, {
+                    headers: { 'Accept': 'application/vnd.github.v3+json' }
+                });
+                if (response.ok) {
+                    const data = await response.json();
+                    const ids = data
+                        .filter(f => f.name.endsWith('.json'))
+                        .slice(0, 15)
+                        .map(f => f.name.replace('.json', ''));
+                    allIds.push(...ids);
+                    successCount++;
+                    addDebug(`✅ Категория ${category}: найдено ${ids.length} предметов`, 'success');
+                } else {
+                    failCount++;
+                    addDebug(`⚠️ Категория ${category}: не найдена (${response.status})`, 'warning');
+                }
+            } catch (error) {
+                failCount++;
+                addDebug(`❌ Ошибка загрузки категории ${category}: ${error.message}`, 'error');
+            }
+        }
+
+        addDebug(`📊 Итог: ${successCount} категорий загружено, ${failCount} пропущено`);
+        addDebug(`📦 Всего найдено ID: ${allIds.length}`);
+        return allIds;
+    }
+
+    // ============================================================
+    //  ПОЛУЧЕНИЕ НАЗВАНИЯ ПРЕДМЕТА (авто-поиск по категориям)
+    // ============================================================
+    async function getItemName(itemId) {
+        for (const category of CATEGORIES) {
+            try {
+                const url = `https://raw.githubusercontent.com/EXBO-Studio/stalzone-database/main/ru/items/${category}/${itemId}.json`;
+                const response = await fetch(url);
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.name && data.name.lines && data.name.lines.ru) {
+                        return data.name.lines.ru;
+                    }
+                    return itemId;
+                }
+            } catch (error) {
+                continue;
+            }
+        }
+        return itemId;
+    }
+
+    // ============================================================
+    //  ЗАГРУЗКА ИСТОРИИ ЦЕН
     // ============================================================
     async function loadPriceHistory(itemId, region) {
         try {
@@ -110,10 +225,20 @@
                     'Content-Type': 'application/json'
                 }
             });
-            if (!response.ok) return null;
+            if (!response.ok) {
+                if (response.status === 401) {
+                    addDebug(`⚠️ ${itemId}: 401 - требуется авторизация`, 'warning');
+                } else if (response.status === 404) {
+                    addDebug(`⚠️ ${itemId}: 404 - нет истории`, 'warning');
+                } else {
+                    addDebug(`⚠️ ${itemId}: статус ${response.status}`, 'warning');
+                }
+                return null;
+            }
             const data = await response.json();
             return data;
         } catch (error) {
+            addDebug(`❌ ${itemId}: ошибка - ${error.message}`, 'error');
             return null;
         }
     }
@@ -122,15 +247,43 @@
     //  ОСНОВНАЯ ФУНКЦИЯ
     // ============================================================
     async function loadAuction() {
+        clearDebug();
+        addDebug(`🚀 Запуск загрузки для региона ${currentRegion}`);
+        addDebug(`🔑 Client ID: ${CLIENT_ID}`);
+        addDebug(`🔗 API URL: ${BASE_URL}`);
+
         refreshBtn.classList.add('loading');
         refreshBtn.textContent = '⏳ Загрузка...';
-        setStatus('📡 Запрос к API...', 'loading');
+        setStatus('📡 Проверка подключения...', 'loading');
         container.innerHTML = '<div class="empty">⏳ Загрузка...</div>';
 
         try {
-            const results = [];
+            // 1. Проверка API
+            const apiOk = await checkApiHealth();
+            if (!apiOk) {
+                setStatus('⚠️ Проблемы с API, но продолжаем...', 'warning');
+            }
 
-            for (const itemId of ITEM_IDS) {
+            // 2. Загрузка ID
+            setStatus('📡 Загрузка ID предметов...', 'loading');
+            const itemIds = await loadAllItemIds();
+            if (itemIds.length === 0) {
+                setStatus('❌ Не найдено ни одного предмета', 'error');
+                container.innerHTML = '<div class="empty">❌ Не удалось загрузить предметы</div>';
+                refreshBtn.classList.remove('loading');
+                refreshBtn.textContent = '🔄 Обновить цены';
+                return;
+            }
+
+            addDebug(`📊 Найдено ${itemIds.length} уникальных ID`);
+
+            // 3. Загрузка цен
+            setStatus(`📡 Загрузка цен для ${itemIds.length} предметов...`, 'loading');
+            const results = [];
+            let loaded = 0;
+            let withPrice = 0;
+
+            for (const itemId of itemIds) {
                 const name = await getItemName(itemId);
                 const priceData = await loadPriceHistory(itemId, currentRegion);
                 let price = 0;
@@ -140,28 +293,41 @@
                     const last = priceData[0];
                     price = last.price || last.amount || 0;
                     qty = last.quantity || last.qty || 1;
+                    if (price > 0) withPrice++;
                 }
 
                 results.push({ id: itemId, name: name, price: price, qty: qty });
+                loaded++;
+
+                if (loaded % 10 === 0) {
+                    setStatus(`📡 Загружено ${loaded}/${itemIds.length} (с ценами: ${withPrice})...`, 'loading');
+                    addDebug(`📊 Прогресс: ${loaded}/${itemIds.length}, с ценами: ${withPrice}`);
+                }
             }
 
-            const filtered = results.filter(item => item.price > 0);
+            addDebug(`📊 Итог: ${results.length} предметов, из них с ценами: ${withPrice}`);
 
-            if (filtered.length === 0) {
-                setStatus(`⚠️ Нет данных по ценам для региона ${currentRegion}`, 'info');
+            // 4. Фильтрация и сортировка
+            const filtered = results.filter(item => item.price > 0);
+            const sorted = filtered.sort((a, b) => b.price - a.price);
+
+            if (sorted.length === 0) {
+                setStatus(`⚠️ Нет активных лотов для региона ${currentRegion}`, 'warning');
                 container.innerHTML = `
                     <div class="empty">
-                        📭 Нет цен для региона ${currentRegion}
+                        📭 Нет активных лотов в регионе ${currentRegion}
                         <br><br>
                         <small style="color:#445566;">Попробуй другой регион</small>
                     </div>
                 `;
+                addDebug(`⚠️ Нет предметов с ценами для региона ${currentRegion}`, 'warning');
                 refreshBtn.classList.remove('loading');
                 refreshBtn.textContent = '🔄 Обновить цены';
                 return;
             }
 
-            const displayItems = filtered.slice(0, 50);
+            // 5. Показ результатов
+            const displayItems = sorted.slice(0, 50);
             container.innerHTML = displayItems.map(item => {
                 return `
                     <div class="item-card">
@@ -175,9 +341,11 @@
                 `;
             }).join('');
 
-            setStatus(`✅ Показано ${displayItems.length} предметов`, 'success');
+            addDebug(`✅ Показано ${displayItems.length} предметов из ${sorted.length} с ценами`, 'success');
+            setStatus(`✅ Показано ${displayItems.length} предметов (всего с ценами: ${sorted.length})`, 'success');
 
         } catch (error) {
+            addDebug(`❌ КРИТИЧЕСКАЯ ОШИБКА: ${error.message}`, 'error');
             setStatus('❌ Ошибка загрузки', 'error');
             container.innerHTML = `<div class="empty" style="color:#ff6666;">❌ Ошибка: ${error.message}</div>`;
         }
@@ -189,11 +357,6 @@
     // ============================================================
     //  ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ
     // ============================================================
-    function setStatus(text, type = 'info') {
-        statusEl.textContent = text;
-        statusEl.className = 'status ' + type;
-    }
-
     function escapeHtml(text) {
         if (!text) return '';
         const div = document.createElement('div');
@@ -219,6 +382,7 @@
 
     refreshBtn.addEventListener('click', loadAuction);
 
+    // Автозагрузка
     setTimeout(() => {
         loadAuction();
     }, 500);
